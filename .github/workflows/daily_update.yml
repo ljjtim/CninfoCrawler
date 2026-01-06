@@ -1,0 +1,34 @@
+name: Daily README Update
+
+on:
+  schedule:
+    # 每天北京时间上午 8 点运行 (UTC 1:00)
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 允许手动触发执行
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install pandas tabulate
+
+      - name: Run update script
+        run: python update_readme.py
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add README.md
+          git commit -m "docs: 自动更新近7天公告表格 [skip ci]" || echo "No changes to commit"
+          git push
