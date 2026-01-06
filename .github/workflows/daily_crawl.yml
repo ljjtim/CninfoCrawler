@@ -30,7 +30,7 @@ jobs:
 
     - name: 执行爬虫
       run: |
-        python "巨潮公告爬取1.py"
+        python "CninfoCrawler1.py"
 
     - name: 提交并推送结果
       run: |
