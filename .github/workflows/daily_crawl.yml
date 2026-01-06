@@ -1,0 +1,50 @@
+name: Daily Cninfo Crawl
+
+# 触发条件
+on:
+  schedule:
+    # 每天北京时间晚上 23:00 运行一次 (UTC 时间 15:00)
+    - cron: '0 15 * * *'
+  workflow_dispatch: # 允许手动点击按钮触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # --- 修改 1：显式声明写入权限 ---
+    permissions:
+      contents: write
+
+    steps:
+    - name: 检出代码
+      uses: actions/checkout@v3
+
+    - name: 设置 Python 环境
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: 安装依赖
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: 执行爬虫
+      run: |
+        python "巨潮公告爬取1.py"
+
+    - name: 提交并推送结果
+      run: |
+        # 配置用户信息
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        
+        # 检查是否有文件更新
+        git add announcements.csv crawl_progress.json
+        
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "Auto-update data: $(date +'%Y-%m-%d %H:%M')"
+          # --- 修改 2：使用更可靠的推送方式 ---
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
+        fi
