@@ -39,7 +39,7 @@ jobs:
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         
         # 检查是否有文件更新
-        git add announcements.csv crawl_progress.json
+        git add announcements.csv
         
         if git diff --staged --quiet; then
           echo "No changes to commit"
