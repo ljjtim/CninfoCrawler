@@ -20,7 +20,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pandas tabulate
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       - name: Run update script
         run: python update_readme.py
