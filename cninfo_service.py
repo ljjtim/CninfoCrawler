@@ -9,7 +9,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, 
 import pandas as pd
 import requests
 
-DEFAULT_KEYWORDS = ["警示", "责令改正", "行政监管", "立案", "行政处罚"]
+DEFAULT_KEYWORDS = ["警示", "责令改正", "行政监管", "立案", "行政处罚", "退市"]
 DEFAULT_OUTPUT_FILE = "announcements.csv"
 CSV_COLUMNS = [
     "keyword",

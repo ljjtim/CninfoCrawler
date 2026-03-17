@@ -2,8 +2,8 @@ name: Daily README Update
 
 on:
   schedule:
-    # 每天北京时间上午 8 点运行 (UTC 1:00)
-    - cron: '0 0 * * *'
+    # 每天北京时间上午 9:15 运行一次 (UTC 时间 01:15)
+    - cron: '15 1 * * *'
   workflow_dispatch: # 允许手动触发执行
 
 jobs:
