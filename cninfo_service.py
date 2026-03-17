@@ -124,11 +124,13 @@ def summarize_record(record: Mapping[str, Any], title_limit: int = 80) -> str:
 
 def record_unique_id(record: Mapping[str, Any]) -> str:
     normalized = normalize_record(record)
+    keyword = normalized["keyword"]
     announcement_url = normalized["announcement_url"]
     if announcement_url:
-        return announcement_url
+        return f"{keyword}|{announcement_url}"
     return "|".join(
         [
+            keyword,
             normalized["stock_code"],
             normalized["title"],
             normalized["publish_time"],
