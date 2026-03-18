@@ -3,7 +3,7 @@ name: Daily README Update
 on:
   schedule:
     # 每天北京时间上午 8:15 运行一次 (UTC 时间 00:15)
-    - cron: '15 0 * * *'
+    - cron: '30 0 * * *'
   workflow_dispatch: # 允许手动触发执行
 
 jobs:
@@ -11,10 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.9'
 
