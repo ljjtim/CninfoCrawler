@@ -3,8 +3,8 @@ name: Daily Cninfo Crawl
 # 触发条件
 on:
   schedule:
-    # 每天北京时间上午 9:00 运行一次 (UTC 时间 01:00)
-    - cron: '0 1 * * *'
+    # 每天北京时间上午 8:00 运行一次 (UTC 时间 00:00)
+    - cron: '0 0 * * *'
   workflow_dispatch: # 允许手动点击按钮触发
 
 jobs:
