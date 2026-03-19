@@ -4,7 +4,7 @@ name: Daily Cninfo Crawl
 on:
   schedule:
     # 每天北京时间上午 8:00 运行一次 (UTC 时间 00:00)
-    - cron: '0 0 * * *'
+    - cron: '0 22 * * *'
   workflow_dispatch: # 允许手动点击按钮触发
 
 jobs:
