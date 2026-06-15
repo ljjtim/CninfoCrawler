@@ -49,6 +49,9 @@ def get_default_date_range(days: int = 7) -> Tuple[str, str]:
 def split_date_range_by_month(start_date: str, end_date: str) -> List[Tuple[str, str]]:
     start_dt = datetime.strptime(normalize_date_str(start_date), "%Y-%m-%d")
     end_dt = datetime.strptime(normalize_date_str(end_date), "%Y-%m-%d")
+    if start_dt > end_dt:
+        raise ValueError(f"开始日期不能晚于结束日期: {start_date} > {end_date}")
+
     ranges: List[Tuple[str, str]] = []
     cursor = start_dt
 
@@ -68,6 +71,8 @@ def empty_announcements_frame() -> pd.DataFrame:
 def clean_text(value: Any) -> str:
     if value is None:
         return ""
+    if isinstance(value, (list, tuple, set)):
+        return ",".join(cleaned for cleaned in (clean_text(item) for item in value) if cleaned)
     return str(value).replace("<em>", "").replace("</em>", "").strip()
 
 
@@ -241,6 +246,9 @@ def filter_dataframe_by_date_range(df: pd.DataFrame, start_date: str, end_date: 
     publish_time_series = pd.to_datetime(working["publish_time"], errors="coerce")
     start_ts = pd.to_datetime(start_date)
     end_ts = pd.to_datetime(end_date)
+    if start_ts > end_ts:
+        raise ValueError(f"开始日期不能晚于结束日期: {start_date} > {end_date}")
+
     mask = publish_time_series.between(start_ts, end_ts, inclusive="both")
     return working.loc[mask].copy()
 
@@ -268,7 +276,7 @@ def build_readme_content(csv_file: str = DEFAULT_OUTPUT_FILE, days: int = 7) -> 
         recent_df = recent_df.sort_values(by=["publish_time", "stock_code", "title"], ascending=[False, True, True])
 
         if recent_df.empty:
-            table_content = "最近 7 天暂无匹配公告。"
+            table_content = f"最近 {days} 天暂无匹配公告。"
         else:
             recent_df["title"] = recent_df.apply(
                 lambda row: f"[{row['title']}]({row['announcement_url']})"
@@ -282,7 +290,7 @@ def build_readme_content(csv_file: str = DEFAULT_OUTPUT_FILE, days: int = 7) -> 
 
     return f"""# 巨潮资讯公告监控 (CninfoCrawler)
 
-> 自动提取近 7 天的关键词监控公告。更新时间：{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+> 自动提取近 {days} 天的关键词监控公告。更新时间：{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
 {table_content}
 
@@ -312,6 +320,8 @@ class CninfoCrawlerService:
             ),
             "X-Requested-With": "XMLHttpRequest",
             "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+            "Origin": "http://www.cninfo.com.cn",
+            "Referer": "http://www.cninfo.com.cn/new/commonUrl?url=disclosure/list/notice",
         }
 
     def _fetch_keyword_records_for_range(self, keyword: str, start_date: str, end_date: str, config: CrawlConfig) -> List[Dict[str, str]]:
