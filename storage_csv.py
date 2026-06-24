@@ -42,6 +42,20 @@ def write_csv(path: Path, df: pd.DataFrame, columns: list[str]) -> None:
     working.to_csv(path, index=False, encoding="utf-8-sig")
 
 
+def append_csv_rows(path: Path, df: pd.DataFrame, columns: list[str]) -> int:
+    if df.empty:
+        return 0
+    path.parent.mkdir(parents=True, exist_ok=True)
+    working = df.copy()
+    for column in columns:
+        if column not in working.columns:
+            working[column] = ""
+    working = working[columns].fillna("")
+    file_exists = path.exists() and path.stat().st_size > 0
+    working.to_csv(path, mode="a", index=False, header=not file_exists, encoding="utf-8-sig")
+    return len(working)
+
+
 def merge_raw_records(records: Iterable[Mapping[str, str]]) -> dict[str, int]:
     grouped: dict[Path, list[dict[str, str]]] = {}
     skipped = 0
@@ -120,12 +134,18 @@ def filtered_to_legacy(filtered_df: pd.DataFrame) -> pd.DataFrame:
 def write_legacy_announcements(filtered_df: pd.DataFrame, output_file: str = "announcements.csv", preserve_existing: bool = True) -> None:
     path = Path(output_file)
     new_legacy = filtered_to_legacy(filtered_df)
-    frames = []
-    if preserve_existing:
-        frames.append(read_csv_or_empty(path, LEGACY_COLUMNS))
-    frames.append(new_legacy)
-    legacy = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=LEGACY_COLUMNS)
-    if not legacy.empty:
-        legacy = legacy.drop_duplicates(subset=["keyword", "announcement_url"], keep="last")
-        legacy = legacy.sort_values(by=["publish_time", "stock_code", "keyword", "title"], ascending=[False, True, True, True])
-    write_csv(path, legacy, LEGACY_COLUMNS)
+    if new_legacy.empty:
+        return
+
+    if not preserve_existing or not path.exists() or path.stat().st_size == 0:
+        new_legacy = new_legacy.drop_duplicates(subset=["keyword", "announcement_url"], keep="last")
+        new_legacy = new_legacy.sort_values(by=["publish_time", "stock_code", "keyword", "title"], ascending=[False, True, True, True])
+        write_csv(path, new_legacy, LEGACY_COLUMNS)
+        return
+
+    existing = read_csv_or_empty(path, LEGACY_COLUMNS)
+    existing_ids = set((existing["keyword"].astype(str) + "|" + existing["announcement_url"].astype(str)).tolist())
+    candidate = new_legacy.drop_duplicates(subset=["keyword", "announcement_url"], keep="last")
+    candidate_ids = candidate["keyword"].astype(str) + "|" + candidate["announcement_url"].astype(str)
+    to_append = candidate.loc[~candidate_ids.isin(existing_ids)].copy()
+    append_csv_rows(path, to_append, LEGACY_COLUMNS)
