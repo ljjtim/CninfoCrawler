@@ -51,6 +51,19 @@ def clean_text(value: Any) -> str:
     return str(value).replace("<em>", "").replace("</em>", "").strip()
 
 
+def normalize_stock_code(value: Any) -> str:
+    """Normalize plain numeric Cninfo security codes to six digits.
+
+    Excel may display or save codes such as 002868 as 2868. Cninfo stock,
+    ETF, bond, and B-share security codes are generally six numeric digits,
+    so pure 1-5 digit values are left-padded. Non-plain values are preserved.
+    """
+    cleaned = clean_text(value)
+    if re.fullmatch(r"\d{1,5}", cleaned):
+        return cleaned.zfill(6)
+    return cleaned
+
+
 def sha1_text(value: str) -> str:
     return hashlib.sha1(value.encode("utf-8")).hexdigest()
 
@@ -118,7 +131,7 @@ def normalize_raw_announcement(item: Mapping[str, Any], column: str = "") -> dic
     publish_time_ms = parse_publish_time_ms(item.get("announcementTime"))
     publish_date = publish_date_from_ms(publish_time_ms)
     title = clean_text(item.get("announcementTitle"))
-    stock_code = clean_text(item.get("secCode"))
+    stock_code = normalize_stock_code(item.get("secCode"))
     stock_name = clean_text(item.get("secName"))
     category = clean_text(item.get("announcementTypeName") or item.get("category"))
     org_id = clean_text(item.get("orgId") or item.get("org_id"))
