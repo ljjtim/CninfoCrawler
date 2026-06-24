@@ -14,7 +14,7 @@ import random
 import time
 from typing import Any
 
-from cninfo_models import extract_announcement_id, normalize_announcement_url, sha1_text
+from cninfo_models import extract_announcement_id, normalize_announcement_url, normalize_stock_code, sha1_text
 from cninfo_service import CninfoCrawlerService, CrawlConfig, parse_announcement, record_unique_id, summarize_record
 from crawl_state import advance_backfill_if_success, load_state, mark_date_status, resolve_dates, save_state
 from storage_csv import merge_raw_records
@@ -25,7 +25,7 @@ LOGGER = logging.getLogger(__name__)
 def legacy_record_to_raw(record: dict[str, str], column: str) -> dict[str, str]:
     url = normalize_announcement_url(record.get("announcement_url"))
     announcement_id = extract_announcement_id(url)
-    stock_code = record.get("stock_code", "")
+    stock_code = normalize_stock_code(record.get("stock_code", ""))
     title = record.get("title", "")
     publish_date = record.get("publish_time", "")
     if not announcement_id:
