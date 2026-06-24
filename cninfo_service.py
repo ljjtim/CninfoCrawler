@@ -9,6 +9,8 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, 
 import pandas as pd
 import requests
 
+from cninfo_models import normalize_stock_code
+
 DEFAULT_KEYWORDS = ["警示", "责令改正", "行政监管", "立案", "行政处罚", "退市"]
 DEFAULT_OUTPUT_FILE = "announcements.csv"
 CSV_COLUMNS = [
@@ -100,7 +102,7 @@ def build_announcement_url(adjunct_url: Any) -> str:
 def normalize_record(record: Mapping[str, Any]) -> Dict[str, str]:
     normalized = {
         "keyword": clean_text(record.get("keyword")),
-        "stock_code": clean_text(record.get("stock_code")),
+        "stock_code": normalize_stock_code(record.get("stock_code")),
         "stock_name": clean_text(record.get("stock_name")),
         "title": clean_text(record.get("title")),
         "publish_time": normalize_date_str(record.get("publish_time")),
@@ -175,6 +177,7 @@ def standardize_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     working = working[CSV_COLUMNS].fillna("")
     for column in CSV_COLUMNS:
         working[column] = working[column].map(clean_text)
+    working["stock_code"] = working["stock_code"].map(normalize_stock_code)
     working["publish_time"] = working["publish_time"].map(normalize_date_str)
     working["announcement_url"] = working["announcement_url"].map(build_announcement_url)
     return working
@@ -257,8 +260,12 @@ def get_csv_date_bounds(csv_file: str = DEFAULT_OUTPUT_FILE) -> Tuple[Optional[s
     return publish_time_series.min().strftime("%Y-%m-%d"), publish_time_series.max().strftime("%Y-%m-%d")
 
 
-def build_readme_content(csv_file: str = DEFAULT_OUTPUT_FILE, days: int = 7) -> str:
-    df = load_announcements_dataframe(csv_file)
+def build_readme_content_from_dataframe(
+    df: pd.DataFrame,
+    days: int = 7,
+    description: str = "自动提取近 7 天的关键词监控公告。",
+) -> str:
+    df = standardize_dataframe(df)
     if df.empty:
         table_content = "当前暂无公告数据。"
     else:
@@ -282,7 +289,7 @@ def build_readme_content(csv_file: str = DEFAULT_OUTPUT_FILE, days: int = 7) -> 
 
     return f"""# 巨潮资讯公告监控 (CninfoCrawler)
 
-> 自动提取近 7 天的关键词监控公告。更新时间：{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+> {description}更新时间：{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 
 {table_content}
 
@@ -299,6 +306,11 @@ def build_readme_content(csv_file: str = DEFAULT_OUTPUT_FILE, days: int = 7) -> 
 ---
 *更多历史数据请查看 [announcements.csv](./announcements.csv)*
 """
+
+
+def build_readme_content(csv_file: str = DEFAULT_OUTPUT_FILE, days: int = 7) -> str:
+    df = load_announcements_dataframe(csv_file)
+    return build_readme_content_from_dataframe(df, days=days)
 
 
 class CninfoCrawlerService:

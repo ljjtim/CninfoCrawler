@@ -14,37 +14,12 @@ import random
 import time
 from typing import Any
 
-from cninfo_models import extract_announcement_id, normalize_announcement_url, normalize_stock_code, sha1_text
-from cninfo_service import CninfoCrawlerService, CrawlConfig, parse_announcement, record_unique_id, summarize_record
+from cninfo_models import normalize_raw_announcement
+from cninfo_service import CninfoCrawlerService, CrawlConfig, summarize_record
 from crawl_state import advance_backfill_if_success, load_state, mark_date_status, resolve_dates, save_state
 from storage_csv import merge_raw_records
 
 LOGGER = logging.getLogger(__name__)
-
-
-def legacy_record_to_raw(record: dict[str, str], column: str) -> dict[str, str]:
-    url = normalize_announcement_url(record.get("announcement_url"))
-    announcement_id = extract_announcement_id(url)
-    stock_code = normalize_stock_code(record.get("stock_code", ""))
-    title = record.get("title", "")
-    publish_date = record.get("publish_time", "")
-    if not announcement_id:
-        announcement_id = sha1_text("|".join([stock_code, publish_date, title, url]))
-    return {
-        "announcement_id": announcement_id,
-        "stock_code": stock_code,
-        "stock_name": record.get("stock_name", ""),
-        "title": title,
-        "publish_date": publish_date,
-        "publish_time_ms": "",
-        "announcement_url": url,
-        "adjunct_url": record.get("announcement_url", ""),
-        "column": column,
-        "category": "",
-        "org_id": "",
-        "raw_hash": sha1_text(str(sorted(record.items()))),
-        "crawled_at": "",
-    }
 
 
 def build_payload(day: str, page: int, config: CrawlConfig) -> dict[str, Any]:
@@ -119,29 +94,46 @@ def fetch_all_records_for_day(
         payload = build_payload(day, page, config)
         response_json = request_page_with_retry(service, payload, config, day, page, max_retries, retry_backoffs)
         announcements = response_json.get("announcements", [])
+        has_more = bool(response_json.get("hasMore", False))
         if not announcements:
+            if has_more:
+                raise RuntimeError(f"date={day} page={page} returned no announcements while hasMore=true")
             LOGGER.info("日期 %s 第 %s 页无数据，结束该日抓取。", day, page)
             break
 
         LOGGER.info("日期 %s 第 %s 页返回 %s 条原始记录。", day, page, len(announcements))
         page_records: list[dict[str, str]] = []
         for item in announcements:
-            record = parse_announcement(item, "")
-            if record:
+            record = normalize_raw_announcement(item, column=config.column)
+            if record.get("title") and record.get("publish_date"):
                 page_records.append(record)
 
         if page_records:
-            page_signature = tuple(record_unique_id(record) for record in page_records)
+            page_signature = tuple(record.get("announcement_id", "") for record in page_records)
             if page_signature in seen_page_signatures:
                 raise RuntimeError(f"date={day} page={page} repeated page signature; stop this date for next recrawl")
             seen_page_signatures.add(page_signature)
-            LOGGER.info("日期 %s 第 %s 页第一条数据：%s", day, page, summarize_record(page_records[0]))
+            LOGGER.info(
+                "日期 %s 第 %s 页第一条数据：%s",
+                day,
+                page,
+                summarize_record(
+                    {
+                        "keyword": "",
+                        "stock_code": page_records[0].get("stock_code", ""),
+                        "stock_name": page_records[0].get("stock_name", ""),
+                        "title": page_records[0].get("title", ""),
+                        "publish_time": page_records[0].get("publish_date", ""),
+                        "announcement_url": page_records[0].get("announcement_url", ""),
+                    }
+                ),
+            )
             all_records.extend(page_records)
             LOGGER.info("日期 %s 抓取累计有效记录 %s 条。", day, len(all_records))
         else:
             LOGGER.warning("日期 %s 第 %s 页记录均被过滤，未产生有效数据。", day, page)
 
-        if not response_json.get("hasMore", False):
+        if not has_more:
             LOGGER.info("日期 %s 已抓取完毕，共 %s 条有效记录。", day, len(all_records))
             break
 
@@ -181,8 +173,7 @@ def crawl_one_day(
         max_retries=max_retries,
         retry_backoffs=retry_backoffs,
     )
-    raw_records = [legacy_record_to_raw(record, column=column) for record in records]
-    storage_stats = merge_raw_records(raw_records)
+    storage_stats = merge_raw_records(records)
     return {
         "status": "completed",
         "pages": pages,
@@ -195,6 +186,19 @@ def crawl_one_day(
 def parse_retry_backoffs(value: str) -> list[float]:
     backoffs = [float(item.strip()) for item in value.split(",") if item.strip()]
     return backoffs or [3.0, 6.0, 12.0]
+
+
+def has_run_page_budget(pages_used: int, max_pages_per_run: int) -> bool:
+    if max_pages_per_run <= 0:
+        return True
+    return pages_used < max_pages_per_run
+
+
+def page_limit_for_next_date(max_pages_per_day: int, pages_used: int, max_pages_per_run: int) -> int:
+    if max_pages_per_run <= 0:
+        return max_pages_per_day
+    remaining_pages = max_pages_per_run - pages_used
+    return max(0, min(max_pages_per_day, remaining_pages))
 
 
 def main() -> int:
@@ -217,6 +221,7 @@ def main() -> int:
     limits = state.setdefault("limits", {})
     max_days_per_run = int(limits.get("max_days_per_run", 7))
     max_pages_per_day = int(limits.get("max_pages_per_day", 3000))
+    max_pages_per_run = int(limits.get("max_pages_per_run", 8000))
     if len(dates) > max_days_per_run:
         LOGGER.warning("日期数量 %s 超过 max_days_per_run=%s，将截断。", len(dates), max_days_per_run)
         dates = dates[-max_days_per_run:]
@@ -224,7 +229,16 @@ def main() -> int:
     retry_backoffs = parse_retry_backoffs(args.retry_backoffs)
     service = CninfoCrawlerService()
     failures = 0
+    pages_used = 0
     for day in dates:
+        if not has_run_page_budget(pages_used, max_pages_per_run):
+            LOGGER.warning(
+                "本次累计页数 %s 已达到 max_pages_per_run=%s，停止继续抓取后续日期。",
+                pages_used,
+                max_pages_per_run,
+            )
+            break
+        effective_max_pages = page_limit_for_next_date(max_pages_per_day, pages_used, max_pages_per_run)
         try:
             result = crawl_one_day(
                 service,
@@ -233,11 +247,12 @@ def main() -> int:
                 args.page_size,
                 args.delay_min,
                 args.delay_max,
-                max_pages_per_day=max_pages_per_day,
+                max_pages_per_day=effective_max_pages,
                 max_retries=args.max_retries,
                 retry_backoffs=retry_backoffs,
             )
             mark_date_status(state, day, result["status"], result)
+            pages_used += int(result.get("pages", 0))
         except Exception as exc:
             LOGGER.exception("日期 %s 抓取失败；不写入该日新数据，不推进回填水位，下次将重新抓取该日。", day)
             mark_date_status(state, day, "failed", {"error": str(exc)})

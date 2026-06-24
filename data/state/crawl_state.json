@@ -1,0 +1,44 @@
+{
+  "backfill": {
+    "batch_days": 7,
+    "completed_ranges": [],
+    "direction": "backward",
+    "failed_dates": [],
+    "next_end_date": "2026-06-24",
+    "target_end_date": "2026-06-24",
+    "target_start_date": "2023-06-25"
+  },
+  "daily": {
+    "hot_window_days": 3,
+    "last_success_at": null,
+    "last_success_range": {
+      "end": "2026-06-24",
+      "start": "2026-06-24"
+    },
+    "verify_window_days": 14
+  },
+  "date_status": {
+    "2026-06-24": {
+      "pages": 52,
+      "pages_estimate": 52,
+      "records": 1555,
+      "status": "completed",
+      "storage": {
+        "added": 0,
+        "input": 1555,
+        "skipped": 0,
+        "written": 1555
+      },
+      "updated_at": "2026-06-24T12:35:29.777207+00:00"
+    }
+  },
+  "limits": {
+    "max_days_per_run": 7,
+    "max_pages_per_day": 3000,
+    "max_pages_per_run": 8000,
+    "max_runtime_minutes": 55
+  },
+  "source": "cninfo",
+  "updated_at": "2026-06-24T12:35:29.777207+00:00",
+  "version": 1
+}

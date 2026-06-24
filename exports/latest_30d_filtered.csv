@@ -1,0 +1,6 @@
+﻿announcement_id,keyword,matched_field,publish_date,stock_code,stock_name,title,announcement_url
+1225383069,退市,title+stock_name,2026-06-24,600193,退市创兴,上海创兴资源开发股份有限公司关于公司股票进入退市整理期交易的第四次风险提示公告,http://static.cninfo.com.cn/finalpage/2026-06-24/1225383069.PDF
+1225382551,退市,title+stock_name,2026-06-24,600608,退市沪科,退市沪科股票进入退市整理期交易的第四次风险提示公告,http://static.cninfo.com.cn/finalpage/2026-06-24/1225382551.PDF
+1225384530,警示,title,2026-06-24,600735,ST新华锦,新华锦关于公司股票被实施其他风险警示事项的进展公告,http://static.cninfo.com.cn/finalpage/2026-06-24/1225384530.PDF
+1225384335,警示,title,2026-06-24,600965,*ST福成,福成股份：关于公司股票被实施其他风险警示相关事项的进展公告,http://static.cninfo.com.cn/finalpage/2026-06-24/1225384335.PDF
+1225384286,退市,title+stock_name,2026-06-24,605081,退市太和,上海太和水科技发展股份有限公司关于公司股票进入退市整理期交易的第四次风险提示公告,http://static.cninfo.com.cn/finalpage/2026-06-24/1225384286.PDF

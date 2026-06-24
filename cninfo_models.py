@@ -133,7 +133,7 @@ def normalize_raw_announcement(item: Mapping[str, Any], column: str = "") -> dic
     title = clean_text(item.get("announcementTitle"))
     stock_code = normalize_stock_code(item.get("secCode"))
     stock_name = clean_text(item.get("secName"))
-    category = clean_text(item.get("announcementTypeName") or item.get("category"))
+    category = clean_text(item.get("announcementTypeName") or item.get("category") or item.get("announcementType"))
     org_id = clean_text(item.get("orgId") or item.get("org_id"))
 
     if not announcement_id and announcement_url:
