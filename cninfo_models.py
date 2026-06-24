@@ -5,11 +5,12 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping
 from urllib.parse import urlsplit, urlunsplit
 
 STATIC_CNINFO_BASE = "http://static.cninfo.com.cn/"
+CNINFO_TIMEZONE = timezone(timedelta(hours=8))
 RAW_COLUMNS = [
     "announcement_id",
     "stock_code",
@@ -109,7 +110,7 @@ def publish_date_from_ms(value: Any) -> str:
     if not ms:
         return ""
     try:
-        return datetime.fromtimestamp(int(ms) / 1000).strftime("%Y-%m-%d")
+        return datetime.fromtimestamp(int(ms) / 1000, tz=CNINFO_TIMEZONE).strftime("%Y-%m-%d")
     except (OSError, ValueError):
         return ""
 

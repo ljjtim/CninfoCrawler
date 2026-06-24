@@ -14,6 +14,10 @@ on:
         description: 'Cninfo column parameter'
         required: false
         default: 'szse'
+      page_sizes:
+        description: 'Comma-separated pageSize values to probe'
+        required: false
+        default: '30,50'
 
 jobs:
   probe:
@@ -37,4 +41,5 @@ jobs:
           python probe_cninfo_api.py \
             --date "${{ github.event.inputs.date }}" \
             --max-pages "${{ github.event.inputs.max_pages }}" \
-            --column "${{ github.event.inputs.column }}"
+            --column "${{ github.event.inputs.column }}" \
+            --page-sizes "${{ github.event.inputs.page_sizes }}"

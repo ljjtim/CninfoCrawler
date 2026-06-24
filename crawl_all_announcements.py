@@ -131,7 +131,7 @@ def fetch_all_records_for_day(
             all_records.extend(page_records)
             LOGGER.info("日期 %s 抓取累计有效记录 %s 条。", day, len(all_records))
         else:
-            LOGGER.warning("日期 %s 第 %s 页记录均被过滤，未产生有效数据。", day, page)
+            raise RuntimeError(f"date={day} page={page} returned announcements but no valid records")
 
         if not has_more:
             LOGGER.info("日期 %s 已抓取完毕，共 %s 条有效记录。", day, len(all_records))
@@ -230,6 +230,8 @@ def main() -> int:
     service = CninfoCrawlerService()
     failures = 0
     pages_used = 0
+    attempted_dates: list[str] = []
+    stopped_by_page_budget = False
     for day in dates:
         if not has_run_page_budget(pages_used, max_pages_per_run):
             LOGGER.warning(
@@ -237,8 +239,10 @@ def main() -> int:
                 pages_used,
                 max_pages_per_run,
             )
+            stopped_by_page_budget = True
             break
         effective_max_pages = page_limit_for_next_date(max_pages_per_day, pages_used, max_pages_per_run)
+        attempted_dates.append(day)
         try:
             result = crawl_one_day(
                 service,
@@ -259,7 +263,10 @@ def main() -> int:
             failures += 1
 
     if args.mode == "backfill":
-        advance_backfill_if_success(state, dates)
+        if stopped_by_page_budget:
+            LOGGER.warning("本次因页数预算提前停止，不推进 backfill 水位；下次将从原水位继续。")
+        else:
+            advance_backfill_if_success(state, attempted_dates)
     else:
         completed_dates = [day for day in dates if state.get("date_status", {}).get(day, {}).get("status") == "completed"]
         state.setdefault("daily", {})["last_success_range"] = {

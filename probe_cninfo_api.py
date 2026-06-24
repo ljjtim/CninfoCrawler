@@ -15,10 +15,10 @@ from cninfo_service import CninfoCrawlerService, CrawlConfig
 from cninfo_models import extract_announcement_id, normalize_announcement_url
 
 
-def build_probe_payload(day: str, page: int, column: str, include_searchkey: bool) -> dict[str, Any]:
+def build_probe_payload(day: str, page: int, column: str, include_searchkey: bool, page_size: int = 30) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "pageNum": page,
-        "pageSize": 30,
+        "pageSize": page_size,
         "column": column,
         "tabName": "fulltext",
         "seDate": f"{day}~{day}",
@@ -37,6 +37,7 @@ def probe_variant(
     max_pages: int,
     column: str,
     include_searchkey: bool,
+    page_size: int = 30,
 ) -> dict[str, Any]:
     datetime.strptime(day, "%Y-%m-%d")
     config = CrawlConfig(start_date=day, end_date=day, column=column, request_timeout=15)
@@ -45,7 +46,7 @@ def probe_variant(
     stopped_by_page_limit = False
 
     for page in range(1, max(1, max_pages) + 1):
-        payload = build_probe_payload(day, page, column, include_searchkey)
+        payload = build_probe_payload(day, page, column, include_searchkey, page_size=page_size)
         response = service.session.post(
             service.url,
             data=payload,
@@ -79,6 +80,7 @@ def probe_variant(
         "probe": "empty_searchkey" if include_searchkey else "without_searchkey",
         "date": day,
         "column": column,
+        "page_size": page_size,
         "max_pages": max_pages,
         "record_count": len(records),
         "stopped_by_page_limit": stopped_by_page_limit,
@@ -104,17 +106,30 @@ def print_probe_summary(summary: dict[str, Any]) -> None:
     print(json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True))
 
 
-def run_probe(day: str, max_pages: int, column: str) -> int:
+def parse_columns(value: str) -> list[str]:
+    columns = [item.strip() for item in value.split(",") if item.strip()]
+    return columns or ["szse"]
+
+
+def parse_page_sizes(value: str) -> list[int]:
+    sizes = [int(item.strip()) for item in value.split(",") if item.strip()]
+    return sizes or [30]
+
+
+def run_probe(day: str, max_pages: int, columns: list[str], page_sizes: list[int]) -> int:
     service = CninfoCrawlerService()
-    for include_searchkey in (True, False):
-        summary = probe_variant(
-            service=service,
-            day=day,
-            max_pages=max_pages,
-            column=column,
-            include_searchkey=include_searchkey,
-        )
-        print_probe_summary(summary)
+    for column in columns:
+        for page_size in page_sizes:
+            for include_searchkey in (True, False):
+                summary = probe_variant(
+                    service=service,
+                    day=day,
+                    max_pages=max_pages,
+                    column=column,
+                    include_searchkey=include_searchkey,
+                    page_size=page_size,
+                )
+                print_probe_summary(summary)
     return 0
 
 
@@ -122,10 +137,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Probe Cninfo API for full announcement crawling.")
     parser.add_argument("--date", required=True, help="YYYY-MM-DD")
     parser.add_argument("--max-pages", type=int, default=3)
-    parser.add_argument("--column", default="szse")
+    parser.add_argument("--column", default="szse", help="单个 column，或用逗号分隔多个值，例如 szse,sse")
+    parser.add_argument("--page-sizes", default="30,50", help="探测 pageSize，逗号分隔，默认 30,50")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-    return run_probe(args.date, args.max_pages, args.column)
+    return run_probe(args.date, args.max_pages, parse_columns(args.column), parse_page_sizes(args.page_sizes))
 
 
 if __name__ == "__main__":

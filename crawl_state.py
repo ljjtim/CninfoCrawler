@@ -108,5 +108,4 @@ def advance_backfill_if_success(state: dict[str, Any], dates: list[str]) -> None
     backfill.setdefault("completed_ranges", []).append({"start": start, "end": end})
     next_end = datetime.strptime(start, "%Y-%m-%d").date() - timedelta(days=1)
     target_start = datetime.strptime(backfill.get("target_start_date"), "%Y-%m-%d").date()
-    if next_end >= target_start:
-        backfill["next_end_date"] = next_end.strftime("%Y-%m-%d")
+    backfill["next_end_date"] = next_end.strftime("%Y-%m-%d")

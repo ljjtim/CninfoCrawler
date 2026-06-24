@@ -79,9 +79,29 @@ class ProbeTest(unittest.TestCase):
         self.assertTrue(summary["stopped_by_page_limit"])
         self.assertEqual(len(session.requests), 2)
         self.assertNotIn("searchkey", session.requests[0]["data"])
+        self.assertEqual(session.requests[0]["data"]["pageSize"], 30)
         self.assertEqual(summary["pages"][0]["http_status"], 200)
         self.assertIn("announcementTitle", summary["sample_keys"])
         self.assertEqual(summary["sample_announcement_id"], "1225382415")
+
+    def test_probe_variant_passes_custom_page_size(self):
+        session = FakeSession(
+            [
+                {"announcements": [sample_item("1225382415")], "hasMore": False},
+            ]
+        )
+        service = CninfoCrawlerService(session=session)
+
+        probe_variant(
+            service=service,
+            day="2026-06-24",
+            max_pages=1,
+            column="szse",
+            include_searchkey=True,
+            page_size=50,
+        )
+
+        self.assertEqual(session.requests[0]["data"]["pageSize"], 50)
 
 
 class FullCrawlerTest(unittest.TestCase):
@@ -174,6 +194,34 @@ class FullCrawlerTest(unittest.TestCase):
         )
 
         with self.assertRaisesRegex(RuntimeError, "hasMore=true"):
+            fetch_all_records_for_day(
+                service=service,
+                day="2026-06-24",
+                config=config,
+                max_pages_per_day=10,
+                max_retries=0,
+                retry_backoffs=[0],
+            )
+
+    def test_fetch_all_records_for_day_fails_when_page_has_no_valid_records(self):
+        item = sample_item()
+        item["announcementTime"] = ""
+        session = FakeSession(
+            [
+                {"announcements": [item], "hasMore": False},
+            ]
+        )
+        service = CninfoCrawlerService(session=session)
+        config = CrawlConfig(
+            start_date="2026-06-24",
+            end_date="2026-06-24",
+            keywords=[""],
+            page_size=30,
+            column="szse",
+            delay_range=(0, 0),
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "no valid records"):
             fetch_all_records_for_day(
                 service=service,
                 day="2026-06-24",
