@@ -104,17 +104,28 @@ def write_filtered_exports(filtered_df: pd.DataFrame) -> None:
         write_csv(EXPORTS_ROOT / name, window_df, FILTERED_COLUMNS)
 
 
-def write_legacy_announcements(filtered_df: pd.DataFrame, output_file: str = "announcements.csv") -> None:
-    legacy = pd.DataFrame(columns=LEGACY_COLUMNS)
-    if not filtered_df.empty:
-        legacy = pd.DataFrame({
-            "keyword": filtered_df.get("keyword", ""),
-            "stock_code": filtered_df.get("stock_code", ""),
-            "stock_name": filtered_df.get("stock_name", ""),
-            "title": filtered_df.get("title", ""),
-            "publish_time": filtered_df.get("publish_date", ""),
-            "announcement_url": filtered_df.get("announcement_url", ""),
-        })
+def filtered_to_legacy(filtered_df: pd.DataFrame) -> pd.DataFrame:
+    if filtered_df.empty:
+        return pd.DataFrame(columns=LEGACY_COLUMNS)
+    return pd.DataFrame({
+        "keyword": filtered_df.get("keyword", ""),
+        "stock_code": filtered_df.get("stock_code", ""),
+        "stock_name": filtered_df.get("stock_name", ""),
+        "title": filtered_df.get("title", ""),
+        "publish_time": filtered_df.get("publish_date", ""),
+        "announcement_url": filtered_df.get("announcement_url", ""),
+    })
+
+
+def write_legacy_announcements(filtered_df: pd.DataFrame, output_file: str = "announcements.csv", preserve_existing: bool = True) -> None:
+    path = Path(output_file)
+    new_legacy = filtered_to_legacy(filtered_df)
+    frames = []
+    if preserve_existing:
+        frames.append(read_csv_or_empty(path, LEGACY_COLUMNS))
+    frames.append(new_legacy)
+    legacy = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=LEGACY_COLUMNS)
+    if not legacy.empty:
         legacy = legacy.drop_duplicates(subset=["keyword", "announcement_url"], keep="last")
         legacy = legacy.sort_values(by=["publish_time", "stock_code", "keyword", "title"], ascending=[False, True, True, True])
-    write_csv(Path(output_file), legacy, LEGACY_COLUMNS)
+    write_csv(path, legacy, LEGACY_COLUMNS)
