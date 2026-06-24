@@ -8,7 +8,7 @@ from typing import Iterable, Mapping
 
 import pandas as pd
 
-from cninfo_models import FILTERED_COLUMNS, LEGACY_COLUMNS, RAW_COLUMNS, clean_text
+from cninfo_models import FILTERED_COLUMNS, LEGACY_COLUMNS, RAW_COLUMNS, clean_text, normalize_stock_code
 
 RAW_ROOT = Path("data/raw")
 EXPORTS_ROOT = Path("exports")
@@ -19,6 +19,17 @@ def raw_month_path(publish_date: str) -> Path:
     return RAW_ROOT / f"year={dt.year:04d}" / f"month={dt.month:02d}" / f"announcements_{dt.year:04d}-{dt.month:02d}.csv"
 
 
+def normalize_dataframe_columns(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
+    working = df.copy()
+    for column in columns:
+        if column not in working.columns:
+            working[column] = ""
+    working = working[columns].fillna("")
+    if "stock_code" in working.columns:
+        working["stock_code"] = working["stock_code"].map(normalize_stock_code)
+    return working
+
+
 def read_csv_or_empty(path: Path, columns: list[str]) -> pd.DataFrame:
     if not path.exists() or path.stat().st_size == 0:
         return pd.DataFrame(columns=columns)
@@ -26,19 +37,12 @@ def read_csv_or_empty(path: Path, columns: list[str]) -> pd.DataFrame:
         df = pd.read_csv(path, dtype=str, keep_default_na=False, encoding="utf-8-sig")
     except pd.errors.EmptyDataError:
         return pd.DataFrame(columns=columns)
-    for column in columns:
-        if column not in df.columns:
-            df[column] = ""
-    return df[columns].fillna("")
+    return normalize_dataframe_columns(df, columns)
 
 
 def write_csv(path: Path, df: pd.DataFrame, columns: list[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    working = df.copy()
-    for column in columns:
-        if column not in working.columns:
-            working[column] = ""
-    working = working[columns].fillna("")
+    working = normalize_dataframe_columns(df, columns)
     working.to_csv(path, index=False, encoding="utf-8-sig")
 
 
@@ -46,11 +50,7 @@ def append_csv_rows(path: Path, df: pd.DataFrame, columns: list[str]) -> int:
     if df.empty:
         return 0
     path.parent.mkdir(parents=True, exist_ok=True)
-    working = df.copy()
-    for column in columns:
-        if column not in working.columns:
-            working[column] = ""
-    working = working[columns].fillna("")
+    working = normalize_dataframe_columns(df, columns)
     file_exists = path.exists() and path.stat().st_size > 0
     working.to_csv(path, mode="a", index=False, header=not file_exists, encoding="utf-8-sig")
     return len(working)
@@ -61,6 +61,7 @@ def merge_raw_records(records: Iterable[Mapping[str, str]]) -> dict[str, int]:
     skipped = 0
     for record in records:
         normalized = {column: clean_text(record.get(column, "")) for column in RAW_COLUMNS}
+        normalized["stock_code"] = normalize_stock_code(normalized.get("stock_code", ""))
         publish_date = normalized.get("publish_date", "")
         if not publish_date:
             skipped += 1
@@ -97,11 +98,7 @@ def load_all_raw(raw_root: Path = RAW_ROOT) -> pd.DataFrame:
 
 def write_filtered_exports(filtered_df: pd.DataFrame) -> None:
     EXPORTS_ROOT.mkdir(parents=True, exist_ok=True)
-    working = filtered_df.copy()
-    for column in FILTERED_COLUMNS:
-        if column not in working.columns:
-            working[column] = ""
-    working = working[FILTERED_COLUMNS].fillna("")
+    working = normalize_dataframe_columns(filtered_df, FILTERED_COLUMNS)
     if not working.empty:
         working = working.drop_duplicates(subset=["announcement_id", "keyword"], keep="last")
         working = working.sort_values(by=["publish_date", "stock_code", "keyword", "title"], ascending=[False, True, True, True])
@@ -123,7 +120,7 @@ def filtered_to_legacy(filtered_df: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame(columns=LEGACY_COLUMNS)
     return pd.DataFrame({
         "keyword": filtered_df.get("keyword", ""),
-        "stock_code": filtered_df.get("stock_code", ""),
+        "stock_code": filtered_df.get("stock_code", "").map(normalize_stock_code),
         "stock_name": filtered_df.get("stock_name", ""),
         "title": filtered_df.get("title", ""),
         "publish_time": filtered_df.get("publish_date", ""),
