@@ -14,8 +14,8 @@ import random
 import time
 from typing import Any
 
-from cninfo_models import extract_announcement_id, normalize_announcement_url, record_unique_id, sha1_text
-from cninfo_service import CninfoCrawlerService, CrawlConfig, parse_announcement, summarize_record
+from cninfo_models import extract_announcement_id, normalize_announcement_url, sha1_text
+from cninfo_service import CninfoCrawlerService, CrawlConfig, parse_announcement, record_unique_id, summarize_record
 from crawl_state import advance_backfill_if_success, load_state, mark_date_status, resolve_dates, save_state
 from storage_csv import merge_raw_records
 
