@@ -18,6 +18,9 @@ jobs:
     steps:
     - name: 检出代码
       uses: actions/checkout@v5
+      with:
+        # 推送前要 rebase，需要完整历史
+        fetch-depth: 0
 
     - name: 设置 Python 环境
       uses: actions/setup-python@v6
@@ -46,6 +49,8 @@ jobs:
           echo "No changes to commit"
         else
           git commit -m "Auto-update data: $(date +'%Y-%m-%d %H:%M')"
+          # 先同步远端，避免与 README 工作流同时推送时被拒
+          git pull --rebase origin main
           # --- 修改 2：使用更可靠的推送方式 ---
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
         fi
