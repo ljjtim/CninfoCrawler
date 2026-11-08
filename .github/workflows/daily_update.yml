@@ -2,19 +2,22 @@ name: Daily README Update
 
 on:
   schedule:
-    # 每天北京时间上午 8:15 运行一次 (UTC 时间 00:15)
-    - cron: '30 22 * * *'
+    # 每天北京时间 01:30 运行一次（UTC 17:30）
+    - cron: '30 17 * * *'
   workflow_dispatch: # 允许手动触发执行
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # 固定 24.04：actions/python-versions 没有 3.9 的 Ubuntu 26.04 构建包
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.9'
 

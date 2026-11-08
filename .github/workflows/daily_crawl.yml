@@ -3,23 +3,24 @@ name: Daily Cninfo Crawl
 # 触发条件
 on:
   schedule:
-    # 每天北京时间上午 8:00 运行一次 (UTC 时间 00:00)
-    - cron: '0 22 * * *'
+    # 每天北京时间 01:00 运行一次（UTC 17:00）
+    - cron: '0 17 * * *'
   workflow_dispatch: # 允许手动点击按钮触发
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # 固定 24.04：actions/python-versions 没有 3.9 的 Ubuntu 26.04 构建包
+    runs-on: ubuntu-24.04
     # --- 修改 1：显式声明写入权限 ---
     permissions:
       contents: write
 
     steps:
     - name: 检出代码
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: 设置 Python 环境
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: '3.9'
 
