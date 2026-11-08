@@ -7,6 +7,11 @@ on:
     - cron: '0 17 * * *'
   workflow_dispatch: # 允许手动点击按钮触发
 
+# 与 README 工作流共用队列，避免两个任务同时往 main 追加数据
+concurrency:
+  group: cninfo-daily
+  cancel-in-progress: false
+
 jobs:
   build:
     # 固定 24.04：actions/python-versions 没有 3.9 的 Ubuntu 26.04 构建包

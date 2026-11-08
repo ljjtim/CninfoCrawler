@@ -6,6 +6,11 @@ on:
     - cron: '30 17 * * *'
   workflow_dispatch: # 允许手动触发执行
 
+# 与爬虫工作流共用队列，避免两个任务同时往 main 推送
+concurrency:
+  group: cninfo-daily
+  cancel-in-progress: false
+
 jobs:
   build:
     # 固定 24.04：actions/python-versions 没有 3.9 的 Ubuntu 26.04 构建包
