@@ -1,9 +1,10 @@
 import logging
 import os
 import random
+import re
 import time
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
 import pandas as pd
@@ -21,6 +22,9 @@ CSV_COLUMNS = [
 ]
 
 LOGGER = logging.getLogger(__name__)
+
+# 公告日期一律按北京时间计算，避免 UTC runner 与本地时区产生一天偏差
+BEIJING_TZ = timezone(timedelta(hours=8))
 
 
 @dataclass(frozen=True)
@@ -97,6 +101,27 @@ def build_announcement_url(adjunct_url: Any) -> str:
     return f"http://static.cninfo.com.cn/{cleaned}"
 
 
+def extract_publish_date_from_url(adjunct_url: Any) -> str:
+    """从公告文件路径 finalpage/YYYY-MM-DD/ 取发布日。
+
+    该日期由交易所按北京时间生成，与本机时区无关，可避免 UTC runner 与
+    本地抓取产生一天的日期偏差。
+    """
+    match = re.search(r"/finalpage/(\d{4}-\d{2}-\d{2})/", build_announcement_url(adjunct_url))
+    return match.group(1) if match else ""
+
+
+def timestamp_to_beijing_date(announcement_time: Any) -> str:
+    """把毫秒时间戳换算成北京时间日期，与本机时区无关。"""
+    if announcement_time in (None, ""):
+        return ""
+    try:
+        stamp = datetime.fromtimestamp(float(announcement_time) / 1000, tz=BEIJING_TZ)
+    except (TypeError, ValueError, OSError):
+        return ""
+    return stamp.strftime("%Y-%m-%d")
+
+
 def normalize_record(record: Mapping[str, Any]) -> Dict[str, str]:
     normalized = {
         "keyword": clean_text(record.get("keyword")),
@@ -140,13 +165,12 @@ def record_unique_id(record: Mapping[str, Any]) -> str:
 
 def parse_announcement(item: Mapping[str, Any], keyword: str) -> Optional[Dict[str, str]]:
     title = clean_text(item.get("announcementTitle"))
-    announcement_time = item.get("announcementTime")
-    publish_time = ""
-    if announcement_time not in (None, ""):
-        try:
-            publish_time = datetime.fromtimestamp(float(announcement_time) / 1000).strftime("%Y-%m-%d")
-        except (TypeError, ValueError, OSError):
-            LOGGER.warning("跳过异常公告时间数据: %s", announcement_time)
+    # 优先取公告文件路径里的日期，跨机器结果一致；取不到再按北京时间换算时间戳
+    publish_time = extract_publish_date_from_url(item.get("adjunctUrl"))
+    if not publish_time:
+        publish_time = timestamp_to_beijing_date(item.get("announcementTime"))
+        if not publish_time and item.get("announcementTime") not in (None, ""):
+            LOGGER.warning("跳过异常公告时间数据: %s", item.get("announcementTime"))
 
     record = normalize_record(
         {
