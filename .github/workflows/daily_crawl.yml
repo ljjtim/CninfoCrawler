@@ -16,7 +16,6 @@ jobs:
   build:
     # 固定 24.04：actions/python-versions 没有 3.9 的 Ubuntu 26.04 构建包
     runs-on: ubuntu-24.04
-    # --- 修改 1：显式声明写入权限 ---
     permissions:
       contents: write
 
@@ -64,6 +63,5 @@ jobs:
           git commit -m "Auto-update data: $(date +'%Y-%m-%d %H:%M')"
           # 先同步远端，避免与 README 工作流同时推送时被拒
           git pull --rebase origin main
-          # --- 修改 2：使用更可靠的推送方式 ---
           git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
         fi
