@@ -36,6 +36,14 @@ jobs:
       run: |
         python "CninfoCrawler1.py"
 
+    - name: 校验近 7 天数据并补齐遗漏
+      run: |
+        # 用 UTC 日期算窗口，与爬虫的 get_default_date_range 一致
+        START_DATE=$(date -u -d '7 days ago' +%F)
+        END_DATE=$(date -u +%F)
+        echo "校验区间: ${START_DATE} ~ ${END_DATE}"
+        python verify_csv_integrity.py --start-date "${START_DATE}" --end-date "${END_DATE}" --repair
+
     - name: 提交并推送结果
       run: |
         # 配置用户信息

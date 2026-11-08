@@ -6,6 +6,7 @@
 - `CninfoCrawler1.py` 是主入口脚本，默认抓取最近 7 天公告并做增量更新。
 - `cninfo_service.py` 集中维护抓取、按月拆分日期范围、分页日志、去重、CSV 读写与 README 内容生成逻辑。
 - `verify_csv_integrity.py` 用于手动校验 `announcements.csv` 是否有遗漏，支持仅报告或用 `--repair` 追加补齐到 CSV 末尾。
+- `fix_publish_dates.py` 按公告 URL 里的 `finalpage/YYYY-MM-DD/` 目录日期回填 `publish_time`，默认只统计，加 `--write` 才写回。
 - `update_readme.py` 根据最近 7 天的数据重建 `README.md` 中的公告表格。
 - `requirements.txt` 维护运行依赖，目前包含 `requests`、`pandas`、`tabulate`。
 - `.github/workflows/` 存放定时任务：`daily_crawl.yml` 负责抓取公告，`daily_update.yml` 负责刷新说明文档。
